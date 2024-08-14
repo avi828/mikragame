@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>משחק לימוד מבוא לתנ"ך</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-image: url('background.png');
+            background-size: cover;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        #game-container {
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px;
+        }
+        .balloon {
+            width: 100px;
+            height: 150px;
+            border-radius: 50% 50% 50% 50% / 40% 40% 60% 60%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            text-align: center;
+            vertical-align: bottom;
+            transition: transform 0.3s ease;
+        }
+        .balloon:hover {
+            transform: scale(1.1);
+        }
+        .balloon::after {
+            content: '';
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            width: 2px;
+            height: 20px;
+            background-color: #000;
+        }
+        #timer, #score {
+            font-size: 18px;
+            margin: 10px;
+        }
+        #victory {
+            display: none;
+        }
+        #victory img {
+            width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <h1>משחק לימוד מבוא לתנ"ך</h1>
+        <div id="start-screen">
+            <input type="text" id="player-name" placeholder="הכנס את שמך">
+            <button id="start-game">התחל משחק</button>
+        </div>
+        <div id="game-screen" style="display:none;">
+            <div id="timer">זמן: 0 שניות</div>
+            <div id="score">ניקוד: 0</div>
+            <div id="instructions"></div>
+            <div id="balloons-container"></div>
+            <button id="next-level" style="display:none;">עבור לשלב הבא</button>
+        </div>
+        <div id="victory" style="display:none;">
+            <img src="victory.png" alt="גביע">
+            <h2>כל הכבוד!</h2>
+            <p>צברת <span id="final-score"></span> נקודות</p>
+        </div>
+    </div>
+
+    <audio id="background-music" loop>
+        <source src="sound.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+        const concepts = [
+            { concept: "תנ\"ך", explanation: "צירוף ראשי תיבות של שלושת חלקיו הגדולים: תורה, נביאים, כתובים" },
+            { concept: "מקרא", explanation: "כינוי לתנ\"ך, מכיוון שקוראים בו בשבתות ובחגים בבתי כנסת ומשום שקוראים בו יותר מכל ספר אחר" },
+            { concept: "ספר הספרים", explanation: "כינוי נוסף לתנ\"ך, מציין שהוא הספר החשוב והנעלה ביותר" },
+            { concept: "כתבי הקודש", explanation: "שם נוסף לתנ\"ך, המציין את קדושתו" },
+            { concept: "כ\"ד הספרים", explanation: "שם המציין את קובץ 24 הספרים בתנ\"ך" },
+            { concept: "תורה", explanation: "חמשת הספרים הראשונים של התנ\"ך: בראשית, שמות, ויקרא, במדבר, דברים" },
+            { concept: "חומש", explanation: "שם נוסף לתורה, הכולל את חמשת חומשי תורה" },
+            { concept: "נביאים", explanation: "חלק שני בתנ\"ך, הכולל את ספרי הנביאים הראשונים והאחרונים" },
+            { concept: "כתובים", explanation: "חלק שלישי בתנ\"ך, הכולל ספרי חוכמה, מזמורים וסיפורים שונים" },
+            { concept: "תרי עשר", explanation: "שנים עשר ספרים נבואיים קצרים, שחוברו יחד בשל דמיונם במהותם ואופיים" },
+            { concept: "ספרי אמ\"ת", explanation: "שם כולל לשלושה מספרי הכתובים: איוב, משלי, תהילים" },
+            { concept: "מגילות", explanation: "חמש מגילות בתנ\"ך הנקראות בזמנים מיוחדים: שיר השירים, רות, איכה, קהלת, אסתר" },
+            { concept: "ספרים חיצוניים", explanation: "ספרים שלא נכנסו לתנ\"ך, כמו ספר המכבים, ספר בן-סירא וספר יהודית" }
+        ];
+
+        const colors = ['#FFD700', '#40E0D0', '#FF69B4', '#7CFC00', '#FF1493', '#00CED1', '#FF4500', '#32CD32', '#FF6347', '#4169E1'];
+        let currentLevel = 0;
+        let score = 0;
+        let startTime;
+        let selectedBalloons = [];
+        let levelConcepts = [];
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        function createBalloon(text, color) {
+            const balloon = document.createElement('div');
+            balloon.className = 'balloon';
+            balloon.textContent = text;
+            balloon.style.backgroundColor = color;
+            return balloon;
+        }
+
+        function startLevel() {
+            const balloonsContainer = document.getElementById('balloons-container');
+            balloonsContainer.innerHTML = '';
+            selectedBalloons = [];
+
+            const levelInstructions = [
+                'התאם את זוגות הבלונים מושג ופירוש',
+                'התאם את זוגות הבלונים מושג ופירוש',
+                'מצא את צמד הפירוש והמושג'
+            ];
+            document.getElementById('instructions').textContent = levelInstructions[currentLevel];
+
+            const numPairs = [5, 10, 13][currentLevel];
+            levelConcepts = concepts.slice(0, numPairs);
+            shuffleArray(levelConcepts);
+
+            const balloons = [];
+            for (let pair of levelConcepts) {
+                balloons.push(createBalloon(pair.concept, colors[Math.floor(Math.random() * colors.length)]));
+                balloons.push(createBalloon(pair.explanation, colors[Math.floor(Math.random() * colors.length)]));
+            }
+            shuffleArray(balloons);
+
+            for (let balloon of balloons) {
+                balloon.addEventListener('click', () => selectBalloon(balloon));
+                balloonsContainer.appendChild(balloon);
+            }
+        }
+
+        function selectBalloon(balloon) {
+            if (selectedBalloons.length < 2 && !selectedBalloons.includes(balloon)) {
+                selectedBalloons.push(balloon);
+                balloon.style.border = '3px solid black';
+
+                if (selectedBalloons.length === 2) {
+                    setTimeout(checkMatch, 500);
+                }
+            }
+        }
+
+        function checkMatch() {
+            const [balloon1, balloon2] = selectedBalloons;
+            const pair = levelConcepts.find(pair => 
+                (pair.concept === balloon1.textContent && pair.explanation === balloon2.textContent) ||
+                (pair.concept === balloon2.textContent && pair.explanation === balloon1.textContent)
+            );
+
+            if (pair) {
+                score++;
+                document.getElementById('score').textContent = `ניקוד: ${score}`;
+                balloon1.style.visibility = 'hidden';
+                balloon2.style.visibility = 'hidden';
+            } else {
+                balloon1.style.border = '';
+                balloon2.style.border = '';
+            }
+
+            selectedBalloons = [];
+
+            if (document.querySelectorAll('.balloon:not([style*="visibility: hidden"])').length === 0) {
+                if (currentLevel < 2) {
+                    document.getElementById('next-level').style.display = 'block';
+                } else {
+                    endGame();
+                }
+            }
+        }
+
+        function nextLevel() {
+            currentLevel++;
+            document.getElementById('next-level').style.display = 'none';
+            startLevel();
+        }
+
+        function updateTimer() {
+            const currentTime = Math.floor((Date.now() - startTime) / 1000);
+            document.getElementById('timer').textContent = `זמן: ${currentTime} שניות`;
+            requestAnimationFrame(updateTimer);
+        }
+
+        function startGame() {
+            const playerName = document.getElementById('player-name').value;
+            if (!playerName) {
+                alert('נא להכניס את שמך לפני תחילת המשחק');
+                return;
+            }
+
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'block';
+            document.getElementById('background-music').play();
+
+            startTime = Date.now();
+            updateTimer();
+            startLevel();
+        }
+
+        function endGame() {
+            document.getElementById('game-screen').style.display = 'none';
+            document.getElementById('victory').style.display = 'block';
+            document.getElementById('final-score').textContent = score;
+            document.getElementById('background-music').pause();
+        }
+
+        document.getElementById('start-game').addEventListener('click', startGame);
+        document.getElementById('next-level').addEventListener('click', nextLevel);
+    </script>
+</body>
+</html>

@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>משחק לימוד מבוא לתנ"ך</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-image: url('background.png');
+            background-size: cover;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        #game-container {
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px;
+        }
+        .shape {
+            width: 120px;
+            height: 80px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            text-align: center;
+            vertical-align: top;
+            transition: transform 0.3s ease;
+            position: absolute;
+        }
+        .shape:hover {
+            transform: scale(1.1);
+        }
+        #shapes-container {
+            position: relative;
+            width: 100%;
+            height: 70vh;
+        }
+        #timer, #score {
+            font-size: 18px;
+            margin: 10px;
+        }
+        #victory {
+            display: none;
+        }
+        #victory img {
+            width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <h1>משחק לימוד מבוא לתנ"ך</h1>
+        <div id="start-screen">
+            <input type="text" id="player-name" placeholder="הכנס את שמך">
+            <button id="start-game">התחל משחק</button>
+        </div>
+        <div id="game-screen" style="display:none;">
+            <div id="timer">זמן: 0 שניות</div>
+            <div id="score">ניקוד: 0</div>
+            <div id="instructions"></div>
+            <div id="shapes-container"></div>
+            <button id="next-level" style="display:none;">עבור לשלב הבא</button>
+        </div>
+        <div id="victory" style="display:none;">
+            <img src="victory.png" alt="גביע">
+            <h2>כל הכבוד!</h2>
+            <p>צברת <span id="final-score"></span> נקודות</p>
+        </div>
+    </div>
+
+    <audio id="background-music" loop>
+        <source src="sound.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+        const concepts = [
+            { concept: "תנ\"ך", explanation: "צירוף ראשי תיבות של שלושת חלקיו הגדולים: תורה, נביאים, כתובים" },
+            { concept: "מקרא", explanation: "כינוי לתנ\"ך, מכיוון שקוראים בו בשבתות ובחגים בבתי כנסת ומשום שקוראים בו יותר מכל ספר אחר" },
+            { concept: "ספר הספרים", explanation: "כינוי נוסף לתנ\"ך, מציין שהוא הספר החשוב והנעלה ביותר" },
+            { concept: "כתבי הקודש", explanation: "שם נוסף לתנ\"ך, המציין את קדושתו" },
+            { concept: "כ\"ד הספרים", explanation: "שם המציין את קובץ 24 הספרים בתנ\"ך" },
+            { concept: "תורה", explanation: "חמשת הספרים הראשונים של התנ\"ך: בראשית, שמות, ויקרא, במדבר, דברים" },
+            { concept: "חומש", explanation: "שם נוסף לתורה, הכולל את חמשת חומשי תורה" },
+            { concept: "נביאים", explanation: "חלק שני בתנ\"ך, הכולל את ספרי הנביאים הראשונים והאחרונים" },
+            { concept: "כתובים", explanation: "חלק שלישי בתנ\"ך, הכולל ספרי חוכמה, מזמורים וסיפורים שונים" },
+            { concept: "תרי עשר", explanation: "שנים עשר ספרים נבואיים קצרים, שחוברו יחד בשל דמיונם במהותם ואופיים" },
+            { concept: "ספרי אמ\"ת", explanation: "שם כולל לשלושה מספרי הכתובים: איוב, משלי, תהילים" },
+            { concept: "מגילות", explanation: "חמש מגילות בתנ\"ך הנקראות בזמנים מיוחדים: שיר השירים, רות, איכה, קהלת, אסתר" },
+            { concept: "ספרים חיצוניים", explanation: "ספרים שלא נכנסו לתנ\"ך, כמו ספר המכבים, ספר בן-סירא וספר יהודית" }
+        ];
+
+        const colors = ['#FFD700', '#40E0D0', '#FF69B4', '#7CFC00', '#FF1493', '#00CED1', '#FF4500', '#32CD32', '#FF6347', '#4169E1'];
+        let currentLevel = 0;
+        let score = 0;
+        let startTime;
+        let selectedShapes = [];
+        let levelConcepts = [];
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        function createShape(text, color, isRectangle) {
+            const shape = document.createElement('div');
+            shape.className = 'shape';
+            shape.textContent = text;
+            shape.style.backgroundColor = color;
+            if (isRectangle) {
+                shape.style.borderRadius = '10px';
+            } else {
+                shape.style.borderRadius = '50% 50% 50% 50% / 40% 40% 60% 60%';
+                shape.style.height = '120px';
+            }
+            return shape;
+        }
+
+        function positionShapes(shapes) {
+            const container = document.getElementById('shapes-container');
+            const containerRect = container.getBoundingClientRect();
+
+            shapes.forEach(shape => {
+                let overlap = true;
+                while (overlap) {
+                    const x = Math.random() * (containerRect.width - shape.offsetWidth);
+                    const y = Math.random() * (containerRect.height - shape.offsetHeight);
+                    shape.style.left = `${x}px`;
+                    shape.style.top = `${y}px`;
+
+                    overlap = false;
+                    for (let other of shapes) {
+                        if (other !== shape && isOverlapping(shape, other)) {
+                            overlap = true;
+                            break;
+                        }
+                    }
+                }
+                container.appendChild(shape);
+            });
+        }
+
+        function isOverlapping(el1, el2) {
+            const rect1 = el1.getBoundingClientRect();
+            const rect2 = el2.getBoundingClientRect();
+            return !(rect1.right < rect2.left || 
+                     rect1.left > rect2.right || 
+                     rect1.bottom < rect2.top || 
+                     rect1.top > rect2.bottom);
+        }
+
+        function startLevel() {
+            const shapesContainer = document.getElementById('shapes-container');
+            shapesContainer.innerHTML = '';
+            selectedShapes = [];
+
+            const levelInstructions = [
+                'התאם את זוגות המלבנים: מושג ופירוש',
+                'התאם את זוגות המלבנים: מושג ופירוש',
+                'מצא את צמד הפירוש והמושג בבלונים'
+            ];
+            document.getElementById('instructions').textContent = levelInstructions[currentLevel];
+
+            const numPairs = [5, 10, 13][currentLevel];
+            levelConcepts = concepts.slice(0, numPairs);
+            shuffleArray(levelConcepts);
+
+            const shapes = [];
+            const isRectangle = currentLevel < 2;
+            for (let pair of levelConcepts) {
+                shapes.push(createShape(pair.concept, colors[Math.floor(Math.random() * colors.length)], isRectangle));
+                shapes.push(createShape(pair.explanation, colors[Math.floor(Math.random() * colors.length)], isRectangle));
+            }
+            shuffleArray(shapes);
+
+            for (let shape of shapes) {
+                shape.addEventListener('click', () => selectShape(shape));
+            }
+
+            positionShapes(shapes);
+        }
+
+        function selectShape(shape) {
+            if (selectedShapes.length < 2 && !selectedShapes.includes(shape)) {
+                selectedShapes.push(shape);
+                shape.style.border = '3px solid black';
+
+                if (selectedShapes.length === 2) {
+                    setTimeout(checkMatch, 500);
+                }
+            }
+        }
+
+        function checkMatch() {
+            const [shape1, shape2] = selectedShapes;
+            const pair = levelConcepts.find(pair => 
+                (pair.concept === shape1.textContent && pair.explanation === shape2.textContent) ||
+                (pair.concept === shape2.textContent && pair.explanation === shape1.textContent)
+            );
+
+            if (pair) {
+                score++;
+                document.getElementById('score').textContent = `ניקוד: ${score}`;
+                shape1.style.visibility = 'hidden';
+                shape2.style.visibility = 'hidden';
+            } else {
+                shape1.style.border = '';
+                shape2.style.border = '';
+            }
+
+            selectedShapes = [];
+
+            if (document.querySelectorAll('.shape:not([style*="visibility: hidden"])').length === 0) {
+                if (currentLevel < 2) {
+                    document.getElementById('next-level').style.display = 'block';
+                } else {
+                    endGame();
+                }
+            }
+        }
+
+        function nextLevel() {
+            currentLevel++;
+            document.getElementById('next-level').style.display = 'none';
+            startLevel();
+        }
+
+        function updateTimer() {
+            const currentTime = Math.floor((Date.now() - startTime) / 1000);
+            document.getElementById('timer').textContent = `זמן: ${currentTime} שניות`;
+            requestAnimationFrame(updateTimer);
+        }
+
+        function startGame() {
+            const playerName = document.getElementById('player-name').value;
+            if (!playerName) {
+                alert('נא להכניס את שמך לפני תחילת המשחק');
+                return;
+            }
+
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'block';
+            document.getElementById('background-music').play();
+
+            startTime = Date.now();
+            updateTimer();
+            startLevel();
+        }
+
+        function endGame() {
+            document.getElementById('game-screen').style.display = 'none';
+            document.getElementById('victory').style.display = 'block';
+            document.getElementById('final-score').textContent = score;
+            document.getElementById('background-music').pause();
+        }
+
+        document.getElementById('start-game').addEventListener('click', startGame);
+        document.getElementById('next-level').addEventListener('click', nextLevel);
+    </script>
+</body>
+</html>
